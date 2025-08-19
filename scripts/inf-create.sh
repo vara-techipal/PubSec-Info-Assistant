@@ -25,6 +25,7 @@ then
     if [ -n "${AZURE_ENVIRONMENT}" ] && [[ $AZURE_ENVIRONMENT == "AzureUSGovernment" ]]; then
         az cloud set --name AzureUSGovernment
     fi
+fi
 
 # Check for existing DDOS Protection Plan and use it if available
 if [[ "$SECURE_MODE" == "true" ]]; then
