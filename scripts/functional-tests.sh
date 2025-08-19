@@ -18,7 +18,7 @@ source "${DIR}/load-env.sh"
 # with a Service Principal.
 if [ -n "${IN_AUTOMATION}" ]
 then
-    az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
+    az login --identity
     az account set -s "$ARM_SUBSCRIPTION_ID"
 fi
 

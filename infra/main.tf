@@ -24,21 +24,6 @@ resource "azurerm_resource_group" "rg" {
   tags     = local.tags
 }
 
-module "entraObjects" {
-  source                            = "./core/aad"
-  isInAutomation                    = var.isInAutomation
-  requireWebsiteSecurityMembership  = var.requireWebsiteSecurityMembership
-  randomString                      = random_string.random.result
-  azure_websites_domain             = var.azure_websites_domain
-  aadWebClientId                    = var.aadWebClientId
-  aadMgmtClientId                   = var.aadMgmtClientId
-  aadMgmtServicePrincipalId         = var.aadMgmtServicePrincipalId
-  aadMgmtClientSecret               = var.aadMgmtClientSecret
-  entraOwners                       = var.entraOwners
-  serviceManagementReference        = var.serviceManagementReference
-  password_lifetime                 = var.password_lifetime
-}
-
 // Create the Virtual Network, Subnets, and Network Security Group
 module "network" {
   source                          = "./core/network/network"
@@ -259,7 +244,7 @@ module "kvModule" {
   vnet_name                     = var.is_secure_mode ? module.network[0].vnet_name : null
   subnet_id                     = var.is_secure_mode ? module.network[0].snetKeyVault_id : null
   private_dns_zone_ids          = var.is_secure_mode ? [module.privateDnsZoneApp[0].privateDnsZoneResourceId] : null
-  depends_on                    = [ module.entraObjects, module.privateDnsZoneKeyVault[0] ]
+  depends_on                    = [ module.privateDnsZoneKeyVault[0] ]
   azure_keyvault_domain         = var.azure_keyvault_domain
   arm_template_schema_mgmt_api  = var.arm_template_schema_mgmt_api
 }
@@ -353,7 +338,6 @@ module "webapp" {
   applicationInsightsConnectionString = module.logging.applicationInsightsConnectionString
   keyVaultUri                         = module.kvModule.keyVaultUri
   keyVaultName                        = module.kvModule.keyVaultName
-  tenantId                            = data.azurerm_client_config.current.tenant_id
   is_secure_mode                      = var.is_secure_mode
   subnet_name                         = var.is_secure_mode ? module.network[0].snetApp_name : null
   vnet_name                           = var.is_secure_mode ? module.network[0].vnet_name : null
@@ -413,7 +397,6 @@ module "webapp" {
     AZURE_AI_CREDENTIAL_DOMAIN               = var.azure_ai_private_link_domain
   }
 
-  aadClientId = module.entraObjects.azure_ad_web_app_client_id
   depends_on = [ module.kvModule ]
 }
 
@@ -867,18 +850,6 @@ module "docIntel_StorageBlobDataReader" {
 }
 
 # // MANAGEMENT SERVICE PRINCIPAL ROLES
-module "openAiRoleMgmt" {
-  source = "./core/security/role"
-  # If leveraging an existing Azure OpenAI service, only make this assignment if not under automation.
-  # When under automation and using an existing Azure OpenAI service, this will result in a duplicate assignment error.
-  count = module.entraObjects.azure_ad_mgmt_sp_id == "" ? 0 : (var.useExistingAOAIService ? (var.isInAutomation ? 0 : 1) : 1)
-  scope = var.useExistingAOAIService ? data.azurerm_resource_group.existing[0].id : azurerm_resource_group.rg.id
-  principalId     = module.entraObjects.azure_ad_mgmt_sp_id
-  roleDefinitionId = local.azure_roles.CognitiveServicesOpenAIUser
-  principalType   = "ServicePrincipal"
-  subscriptionId   = data.azurerm_client_config.current.subscription_id
-  resourceGroupId  = azurerm_resource_group.rg.id
-}
 
 // DEPLOYMENT OF AZURE CUSTOMER ATTRIBUTION TAG
 resource "azurerm_resource_group_template_deployment" "customer_attribution" {

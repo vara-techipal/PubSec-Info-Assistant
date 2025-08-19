@@ -16,7 +16,7 @@ steps:
   clean: true
 
 - bash: |
-    docker login $(CONTAINER_REGISTRY_ADDRESS) -u $(CLIENT_ID) -p $(CLIENT_SECRET)
+    docker login $(CONTAINER_REGISTRY_ADDRESS) -u $(CONTAINER_REGISTRY_USERNAME) -p $(CONTAINER_REGISTRY_PASSWORD)
     docker pull $(CONTAINER_REGISTRY_ADDRESS)/info-asst-devcontainer:latest
   displayName: Pull latest dev container from container registry for layer caching
   continueOnError: true # for first build, no cache
