@@ -353,7 +353,6 @@ module "webapp" {
   applicationInsightsConnectionString = module.logging.applicationInsightsConnectionString
   keyVaultUri                         = module.kvModule.keyVaultUri
   keyVaultName                        = module.kvModule.keyVaultName
-  tenantId                            = data.azurerm_client_config.current.tenant_id
   is_secure_mode                      = var.is_secure_mode
   subnet_name                         = var.is_secure_mode ? module.network[0].snetApp_name : null
   vnet_name                           = var.is_secure_mode ? module.network[0].vnet_name : null
@@ -413,7 +412,6 @@ module "webapp" {
     AZURE_AI_CREDENTIAL_DOMAIN               = var.azure_ai_private_link_domain
   }
 
-  aadClientId = module.entraObjects.azure_ad_web_app_client_id
   depends_on = [ module.kvModule ]
 }
 
