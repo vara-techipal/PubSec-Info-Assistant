@@ -135,10 +135,6 @@ resource "azurerm_linux_web_app" "app_service" {
     }
     failed_request_tracing = true
   }
-
-  auth_settings_v2 {
-    auth_enabled = false
-  }
 }
 
 resource "azurerm_monitor_diagnostic_setting" "diagnostic_logs_commercial" {
