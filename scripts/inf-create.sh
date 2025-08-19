@@ -20,33 +20,6 @@ trap finish EXIT
 
 if [ -n "${IN_AUTOMATION}" ]; then
   export TF_VAR_isInAutomation=true
-  
-  if [[ $WORKSPACE = tmp* ]]; then
-    # if in automation for PR builds, get the app registration and service principal values from the already logged in SP
-    aadWebAppId=$ARM_CLIENT_ID
-    aadMgmtAppId=$ARM_CLIENT_ID
-    aadWebSPId=$ARM_SERVICE_PRINCIPAL_ID
-    aadMgmtAppSecret=$ARM_CLIENT_SECRET
-    aadMgmtSPId=$ARM_SERVICE_PRINCIPAL_ID
-  else
-    # if in automation for non-PR builds, get the app registration and service principal values from the manually created AD objects
-    aadWebAppId=$AD_WEBAPP_CLIENT_ID
-    if [ -z $aadWebAppId ]; then
-      echo "An Azure AD App Registration and Service Principal must be manually created for the targeted workspace."
-      echo "Please create the Azure AD objects using the script at /scripts/create-ad-objs-for-deployment.sh and set the AD_WEBAPP_CLIENT_ID pipeline variable in Azure DevOps."
-      exit 1  
-    fi
-    aadMgmtAppId=$AD_MGMTAPP_CLIENT_ID
-    aadMgmtAppSecret=$AD_MGMTAPP_CLIENT_SECRET
-    aadMgmtSPId=$AD_MGMT_SERVICE_PRINCIPAL_ID
-
-  fi
-
-  # prepare the AD object variables for Terraform
-  export TF_VAR_aadWebClientId=$aadWebAppId
-  export TF_VAR_aadMgmtClientId=$aadMgmtAppId
-  export TF_VAR_aadMgmtServicePrincipalId=$aadMgmtSPId
-  export TF_VAR_aadMgmtClientSecret=$aadMgmtAppSecret
 fi
 
 if [ -n "${IN_AUTOMATION}" ]
@@ -56,19 +29,15 @@ then
         az cloud set --name AzureUSGovernment 
     fi
 
-    az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
+    if [ -n "$ARM_CLIENT_SECRET" ]; then
+        az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
+    else
+        az login --identity -u "$ARM_CLIENT_ID"
+    fi
     az account set -s "$ARM_SUBSCRIPTION_ID"
 fi
 
-#If you are unable to obtain the permission at the tenant level described in Azure account requirements, you can set the following to true provided you have created Azure AD App Registrations. 
-
-#export TF_VAR_isInAutomation=true
-#export TF_VAR_aadWebClientId=""
-#export TF_VAR_aadMgmtClientId=""
-#export TF_VAR_aadMgmtServicePrincipalId=""
-#export TF_VAR_aadMgmtClientSecret=""
-
-
+#If you are unable to obtain the permission at the tenant level described in Azure account requirements, you can set the following to true provided you have created Azure AD App Registrations.
 # prepare vars for the users you wish to assign to the security group
 object_ids=()
 # Remove spaces from the comma-separated string
