@@ -136,6 +136,8 @@ resource "azurerm_linux_web_app" "app_service" {
     failed_request_tracing = true
   }
 
+}
+
 resource "azurerm_monitor_diagnostic_setting" "diagnostic_logs_commercial" {
   count                      = var.azure_environment == "AzureUSGovernment" ? 0 : 1
   name                       = azurerm_linux_web_app.app_service.name
