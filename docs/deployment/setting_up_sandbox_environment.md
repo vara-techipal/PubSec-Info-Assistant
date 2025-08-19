@@ -64,9 +64,7 @@ To set up an Azure DevOps pipeline for deploying code from a GitHub repository, 
 
 ## Configuring Azure Entra Objects
 
-The Azure DevOps pipelines run under a "Service Connection" that leverages an Azure Entra Service Principal (the CLIENT_ID and SERVICE_PRINCIPAL_ID parameters above). This Service Principal will not have rights to create additional Azure Entra objects, so an Administrative user needs to manually create the Azure Entra objects required for the Information Assistant environment before running the pipeline. Information on the Azure Entra objects required can be found in our [Manual App Registration Creation Guide](docs/deployment/manual_app_registration.md) and [GitHub Discussion #457](https://github.com/microsoft/PubSec-Info-Assistant/discussions/457)
-
-:warning: The provided example Azure DevOps pipeline currently does NOT configure the accelerator to use the custom Azure Entra objects on when deploying an environment as they are not required for running the functional tests. The example pipelines will need to be extended to apply the custom Azure Entra objects to deploy a fully functioning Information Assistant environment.
+The Azure DevOps pipelines now create the required Azure Entra app registrations automatically. If you want to require a custom login experience, set `REQUIRE_WEBSITE_SECURITY_MEMBERSHIP` to `true` in your environment file. Leaving this value `false` runs the site in anonymous mode without requiring login. Adjust the example pipelines as needed if you choose to enable authentication for your deployment.
 
 ## Running and testing the Azure DevOps pipeline
 

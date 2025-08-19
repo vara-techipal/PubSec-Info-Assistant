@@ -60,7 +60,7 @@ ENABLE_MATH_ASSISTANT | Yes | Defaults to `true`. This feature flag will enable 
 ENABLE_TABULAR_DATA_ASSISTANT | Yes | Defaults to `true`. This feature flag will enable the Tabular Data Assistant tab in the Information Assistant website. Read more information about the [Tabular Data Assistant](/docs/features/features.md). Read the security warnings on the Tabular Data Assistant feature page when deploying this feature.
 ENABLE_SHAREPOINT_CONNECTOR | Yes | Defaults to `false`. This feature flag enabled the ability to ingest data from SharePoint document stores into the Information Assistant. When enabled, be sure to set the `SHAREPOINT_TO_SYNC` parameter for your SharePoint sites. Read more about configuring the [SharePoint Connector](/docs/features/sharepoint.md). This feature flag is **NOT** compatible with `AZURE_ENVIRONMENT=AzureUSGovernment`.
 SHAREPOINT_TO_SYNC | No | This is a JSON Array of Objects for SharePoint Sites and their entry folders. The app will crawl down from the folder specified for each site. Specifying "/Shared Documents" will crawl all the documents in your SharePoint. `[{"url": "https://SharePoint.com/", "folder": "/Shared Documents"}]` This will **overwrite** any prior changes you've made to config.json. Information on setting up SharePoint Ingestion can be found here [SharePoint Connector](/docs/features/sharepoint.md)
-REQUIRE_WEBSITE_SECURITY_MEMBERSHIP | Yes | Use this setting to determine whether a user needs to be granted explicit access to the website via an Azure AD Enterprise Application membership (true) or allow the website to be available to anyone in the Azure tenant (false). Defaults to false. If set to true, A tenant level administrator will be required to grant the implicit grant workflow for the Azure AD App Registration manually.
+REQUIRE_WEBSITE_SECURITY_MEMBERSHIP | Yes | Set to `true` to require users to sign in with Azure Entra ID, or `false` to run the site in anonymous mode without login. Defaults to false.
 SECRET_EXPIRATION_DAYS | Yes | Defaults to `730`. Use this setting to set the secret expiration to the current day plus the number of days specified. Key Vault secrets require an expiration date to be compatible with Microsoft's recommended guardrails for Azure Key Vault policy. We have NOT included automatic secret rotation in this deployment. Go [here](https://learn.microsoft.com/en-us/azure/key-vault/keys/how-to-configure-key-rotation) for more information on enabling cryptographic key auto-rotation.
 SKIP_PLAN_CHECK | No | If this value is set to 1, then the Terraform deployment will not stop to allow you to review the planned changes. The default value is 0 in the scripts, which will allow the deployment to stop and confirm you accept the proposed changes before continuing.
 USE_EXISTING_AOAI | Yes | Defaults to false. Set this value to "true" if you want to use an existing Azure Open AI service instance in your subscription. This can be useful when there are limits to the number of AOAI instances you can have in one subscription. When the value is set to "false" and Terraform will create a new Azure Open AI service instance in your resource group. **Note:** If you have set SECURE_MODE to `true` you will have to set USE_EXISTING_AOAI to `false` as using an existing Azure OpenAI resource is not compatible with secure mode. 
@@ -211,15 +211,9 @@ run-data-migration           Run the data migration moving data from one resourc
 manual-inf-destroy           A command triggered by a user to destroy a resource group, associated resources, and related Entra items
 ```
 
-## Configure AD app registration ( manual steps )
-
-If you have insufficient permissions at the tenant level (Application Administrator Entra Role), follow the guide to complete the deployment [manual app registration](/docs/deployment/manual_app_registration.md).
-
 ## Configure authentication and authorization
 
-If you have chosen to enable authentication and authorization for your deployment by setting the environment variable `REQUIRE_WEBSITE_SECURITY_MEMBERSHIP` to `true`, you will need to configure it at this point. Please see [Known Issues](/docs/knownissues.md#error-your-adminstrator-has-configured-the-application-infoasst_web_access_xxxxx-to-block-users) section for guidance on how to configure.
-
-**NOTICE:** If you haven't enabled this, but your Tenant requires this, you may still need to configure as noted above.
+You can choose whether the site requires a custom login or allows anonymous access by using the `REQUIRE_WEBSITE_SECURITY_MEMBERSHIP` setting. When set to `true`, users must sign in with Azure Entra ID and be granted access through the Enterprise Application. When set to `false`, no login is required and the site runs anonymously. See [Known Issues](/docs/knownissues.md#error-your-adminstrator-has-configured-the-application-infoasst_web_access_xxxxx-to-block-users) for guidance on configuring access when authentication is enabled.
 
 ## Authorizing SharePoint
 

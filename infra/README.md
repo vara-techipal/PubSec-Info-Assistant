@@ -43,9 +43,7 @@ manual-inf-destroy           A command triggered by a user to destroy a resource
 
 ## Configure authentication and authorization
 
-If you have chosen to enable authentication and authorization for your deployment by setting the environment variable `REQUIRE_WEBSITE_SECURITY_MEMBERSHIP` to `true`, you will need to configure it at this point. Please see [Known Issues](./docs/knownissues.md#error-your-adminstrator-has-configured-the-application-infoasst_web_access_xxxxx-to-block-users) section for guidance on how to configure. 
-
-**NOTICE:** If you haven't enabled this, but your Tenant requires this, you may still need to configure as noted above.
+Use the `REQUIRE_WEBSITE_SECURITY_MEMBERSHIP` setting to control access. Setting it to `true` enables a custom Azure Entra login where users must be granted access. Leaving it `false` runs the site in anonymous mode without requiring login. See [Known Issues](./docs/knownissues.md#error-your-adminstrator-has-configured-the-application-infoasst_web_access_xxxxx-to-block-users) for guidance when authentication is enabled.
 
 ## Find your deployment URL
 
