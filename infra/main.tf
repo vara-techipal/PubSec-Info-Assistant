@@ -850,6 +850,7 @@ module "docIntel_StorageBlobDataReader" {
 }
 
 # // MANAGEMENT SERVICE PRINCIPAL ROLES
+
 // DEPLOYMENT OF AZURE CUSTOMER ATTRIBUTION TAG
 resource "azurerm_resource_group_template_deployment" "customer_attribution" {
   count               = var.cuaEnabled ? 1 : 0

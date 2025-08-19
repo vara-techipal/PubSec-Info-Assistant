@@ -24,6 +24,7 @@ steps:
       --user vscode \
       'info-asst-devcontainer:$(Build.BuildId)' \
       bash -c -i "make ${{ parameters.makeCommand }}"
+
     displayName: ${{ parameters.displayName }}
     condition: or(succeeded(), eq('${{ parameters.force }}', 'true'))
     env:
@@ -38,3 +39,4 @@ steps:
       TF_BACKEND_STORAGE_ACCOUNT: $(TF_BACKEND_STORAGE_ACCOUNT)
       TF_BACKEND_CONTAINER: $(TF_BACKEND_CONTAINER)
       TF_BACKEND_ACCESS_KEY: $(TF_BACKEND_ACCESS_KEY)
+

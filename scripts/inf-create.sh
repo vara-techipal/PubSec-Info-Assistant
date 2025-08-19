@@ -18,16 +18,13 @@ function finish {
 }
 trap finish EXIT
 
+
 if [ -n "${IN_AUTOMATION}" ]
 then
 
     if [ -n "${AZURE_ENVIRONMENT}" ] && [[ $AZURE_ENVIRONMENT == "AzureUSGovernment" ]]; then
         az cloud set --name AzureUSGovernment
     fi
-
-    az login --identity
-    az account set -s "$ARM_SUBSCRIPTION_ID"
-fi
 
 # Check for existing DDOS Protection Plan and use it if available
 if [[ "$SECURE_MODE" == "true" ]]; then
