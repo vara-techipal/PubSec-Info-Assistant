@@ -202,9 +202,9 @@ if [ -n "${IN_AUTOMATION}" ]; then
         az cloud set --name AzureUSGovernment > /dev/null 2>&1
     fi
 
-    az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" > /dev/null 2>&1
+    az login --identity > /dev/null 2>&1
     az account set -s "$ARM_SUBSCRIPTION_ID" > /dev/null 2>&1
-fi    
+fi
 
 # Name of your Key Vault
 keyVaultName=$(cat inf_output.json | jq -r .AZURE_KEYVAULT_NAME.value)

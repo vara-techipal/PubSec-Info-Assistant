@@ -17,10 +17,10 @@ if [ -n "${IN_AUTOMATION}" ]
 then
 
     if [ -n "${AZURE_ENVIRONMENT}" ] && [[ $AZURE_ENVIRONMENT == "AzureUSGovernment" ]]; then
-        az cloud set --name AzureUSGovernment 
+        az cloud set --name AzureUSGovernment
     fi
 
-    az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
+    az login --identity
     az account set -s "$ARM_SUBSCRIPTION_ID"
 fi
 

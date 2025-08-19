@@ -17,10 +17,10 @@ then
     echo "Delete the resource group $RG_NAME, but don't wait (fire and forget)"
 
     if [ -n "${AZURE_ENVIRONMENT}" ] && [[ $AZURE_ENVIRONMENT == "AzureUSGovernment" ]]; then
-        az cloud set --name AzureUSGovernment 
+        az cloud set --name AzureUSGovernment
     fi
 
-    az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
+    az login --identity
     az account set -s "$ARM_SUBSCRIPTION_ID"
     az group delete \
         --resource-group $TF_VAR_resource_group_name \
