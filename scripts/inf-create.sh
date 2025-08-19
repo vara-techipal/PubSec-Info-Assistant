@@ -18,25 +18,16 @@ function finish {
 }
 trap finish EXIT
 
-if [ -n "${IN_AUTOMATION}" ]; then
-  export TF_VAR_isInAutomation=true
-fi
-
 if [ -n "${IN_AUTOMATION}" ]
 then
 
     if [ -n "${AZURE_ENVIRONMENT}" ] && [[ $AZURE_ENVIRONMENT == "AzureUSGovernment" ]]; then
-        az cloud set --name AzureUSGovernment 
+        az cloud set --name AzureUSGovernment
     fi
 
-    az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID"
+    az login --identity
     az account set -s "$ARM_SUBSCRIPTION_ID"
 fi
-
-#If you are unable to obtain the permission at the tenant level described in Azure account requirements, you can set the following to true provided you have created Azure AD App Registrations. 
-
-#export TF_VAR_isInAutomation=true
-
 
 # Check for existing DDOS Protection Plan and use it if available
 if [[ "$SECURE_MODE" == "true" ]]; then
