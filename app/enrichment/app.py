@@ -54,8 +54,9 @@ ENV = {
     "AZURE_SEARCH_SERVICE_ENDPOINT": None,
     "AZURE_SEARCH_AUDIENCE": None,
     "LOCAL_DEBUG": "false",
-    "AZURE_AI_CREDENTIAL_DOMAIN": None,
-    "AZURE_OPENAI_AUTHORITY_HOST": None
+    "AZURE_AI_CREDENTIAL_DOMAIN": "",
+    "AZURE_OPENAI_AUTHORITY_HOST": "",
+    "OPENAI_API_KEY": ""
 }
 
 for key, value in ENV.items():
@@ -82,17 +83,25 @@ if ENV["LOCAL_DEBUG"] == "true":
     azure_credential = DefaultAzureCredential(authority=AUTHORITY)
 else:
     azure_credential = ManagedIdentityCredential(authority=AUTHORITY)
-# Comment these two lines out if using keys, set your API key in the OPENAI_API_KEY environment variable instead
-openai.api_type = "azure_ad"
-token_provider = get_bearer_token_provider(azure_credential,
-                                           f'https://{ENV["AZURE_AI_CREDENTIAL_DOMAIN"]}/.default')
-openai.azure_ad_token_provider = token_provider
-#openai.api_key = ENV["AZURE_OPENAI_SERVICE_KEY"]
-
-client = AzureOpenAI(
-        azure_endpoint = openai.api_base,
-        azure_ad_token_provider=token_provider,
-        api_version=openai.api_version)
+openai_api_key = ENV.get("OPENAI_API_KEY")
+if openai_api_key:
+    openai.api_type = "azure"
+    openai.api_key = openai_api_key
+    client = AzureOpenAI(
+            azure_endpoint=openai.api_base,
+            api_key=openai_api_key,
+            api_version=openai.api_version)
+else:
+    openai.api_type = "azure_ad"
+    if not ENV.get("AZURE_AI_CREDENTIAL_DOMAIN"):
+        raise ValueError("Environment variable AZURE_AI_CREDENTIAL_DOMAIN not set")
+    token_provider = get_bearer_token_provider(azure_credential,
+                                               f'https://{ENV["AZURE_AI_CREDENTIAL_DOMAIN"]}/.default')
+    openai.azure_ad_token_provider = token_provider
+    client = AzureOpenAI(
+            azure_endpoint=openai.api_base,
+            azure_ad_token_provider=token_provider,
+            api_version=openai.api_version)
 
 class AzOAIEmbedding(object):
     """A wrapper for a Azure OpenAI Embedding model"""
