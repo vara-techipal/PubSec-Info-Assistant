@@ -18,7 +18,6 @@ function finish {
 }
 trap finish EXIT
 
-
 if [ -n "${IN_AUTOMATION}" ]
 then
 
@@ -29,28 +28,6 @@ then
     az login --identity
     az account set -s "$ARM_SUBSCRIPTION_ID"
 fi
-
-#If you are unable to obtain the permission at the tenant level described in Azure account requirements, you can set the following to true provided you have created Azure AD App Registrations.
-
-
-# prepare vars for the users you wish to assign to the security group
-object_ids=()
-# Remove spaces from the comma-separated string
-ENTRA_OWNERS=$(echo "$ENTRA_OWNERS" | tr -d ' ')
-IFS=',' read -ra ADDR <<< "$ENTRA_OWNERS"
-for user_principal_name in "${ADDR[@]}"; do
-  object_id=$(az ad user list --filter "mail eq '$user_principal_name'" --query "[0].id" -o tsv)
-  # Check if the object_id is not empty before adding it to the array
-  if [[ -n $object_id ]]; then
-    object_ids+=($object_id)
-    echo "user_principal_name: $user_principal_name and object_id: $object_id to be added as an owner"
-  else
-    echo "No object_id found for user_principal_name: $user_principal_name"
-  fi
-done
-# Join the array of object IDs into a comma-separated string
-object_ids_string=$(IFS=','; echo "${object_ids[*]}")
-export TF_VAR_entraOwners=$object_ids_string
 
 # Check for existing DDOS Protection Plan and use it if available
 if [[ "$SECURE_MODE" == "true" ]]; then

@@ -62,15 +62,6 @@ variable "keyVaultName" {
   type = string
 }
 
-variable "aadClientId" {
-  type = string
-  default = ""
-}
-
-variable "tenantId" {
-  type = string
-  default = ""
-}
 
 variable "scmDoBuildDuringDeployment" {
   type = bool

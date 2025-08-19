@@ -135,26 +135,6 @@ resource "azurerm_linux_web_app" "app_service" {
     }
     failed_request_tracing = true
   }
-
-  auth_settings_v2 {
-    auth_enabled = true
-    default_provider = "azureactivedirectory"
-    runtime_version = "~2"
-    unauthenticated_action = "RedirectToLoginPage"
-    require_https = true
-    active_directory_v2{
-      client_id = var.aadClientId
-      login_parameters = {}
-      tenant_auth_endpoint = "https://sts.windows.net/${var.tenantId}/v2.0"
-      www_authentication_disabled  = false
-      allowed_audiences = [
-        "api://${var.name}"
-      ]
-    }
-    login{
-      token_store_enabled = false
-    }
-  }
 }
 
 resource "azurerm_monitor_diagnostic_setting" "diagnostic_logs_commercial" {
