@@ -22,7 +22,6 @@ export TF_VAR_azureOpenAIEmbeddingsModelName=$AZURE_OPENAI_EMBEDDINGS_MODEL_NAME
 export TF_VAR_azureOpenAIEmbeddingsModelVersion=$AZURE_OPENAI_EMBEDDINGS_MODEL_VERSION
 export TF_VAR_sentenceTransformersModelName=$OPEN_SOURCE_EMBEDDING_MODEL
 export TF_VAR_sentenceTransformerEmbeddingVectorSize=$OPEN_SOURCE_EMBEDDING_MODEL_VECTOR_SIZE
-export TF_VAR_requireWebsiteSecurityMembership=$REQUIRE_WEBSITE_SECURITY_MEMBERSHIP
 export TF_VAR_queryTermLanguage=$PROMPT_QUERYTERM_LANGUAGE
 export TF_VAR_targetTranslationLanguage=$TARGET_TRANSLATION_LANGUAGE
 export TF_VAR_applicationtitle=$APPLICATION_TITLE
@@ -40,8 +39,6 @@ export TF_VAR_enableMathAssitant=$ENABLE_MATH_ASSISTANT
 export TF_VAR_enableTabularDataAssistant=$ENABLE_TABULAR_DATA_ASSISTANT
 export TF_VAR_enableSharePointConnector=$ENABLE_SHAREPOINT_CONNECTOR
 export TF_VAR_maxCsvFileSize=$MAX_CSV_FILE_SIZE
-export TF_VAR_serviceManagementReference=$SERVICE_MANAGEMENT_REFERENCE
-export TF_VAR_password_lifetime=$PASSWORD_LIFETIME
 export TF_VAR_enabledDDOSProtectionPlan=$ENABLE_DDOS_PROTECTION_PLAN
 if [[ -n $AZURE_OPENAI_CHATGPT_SKU ]]; then
     export TF_VAR_chatGptModelSkuName=$AZURE_OPENAI_CHATGPT_SKU

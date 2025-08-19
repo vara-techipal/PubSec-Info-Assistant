@@ -28,11 +28,6 @@ variable "cuaId" {
   default = ""
 }
 
-variable "requireWebsiteSecurityMembership" {
-  type    = bool
-  default = false
-}
-
 //// Feature flags and supporting variables
 variable "enableBingSafeSearch" {
   type    = bool
@@ -162,26 +157,6 @@ variable "isInAutomation" {
   default = false
 }
 
-variable "aadWebClientId" {
-  type    = string
-  default = ""
-}
-
-variable "aadMgmtClientId" {
-  type    = string
-  default = ""
-}
-
-variable "aadMgmtClientSecret" {
-  type      = string
-  default   = ""
-  sensitive = true
-}
-
-variable "aadMgmtServicePrincipalId" {
-  type = string
-  default = ""
-}
 ////
 
 //// Variables that are used for the Azure OpenAI service
@@ -627,21 +602,4 @@ variable "enableDevCode" {
 variable "maxCsvFileSize" {
   type    = string
   default = "20"
-}
-
-variable "entraOwners" {
-  type    = string
-  default = ""
-  description = "Comma-separated list of owner emails"
-}
-
-variable "serviceManagementReference" {
-  type    = string
-  default = ""
-}
-
-variable "password_lifetime" {
-  type    = number
-  default = 365
-  description = "The number of days used as the lifetime for passwords"  
 }

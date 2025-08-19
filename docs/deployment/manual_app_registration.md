@@ -1,6 +1,7 @@
 # App Registration Creation Guide
 
-If you are unable to obtain the permission at the tenant level described in [Azure account requirements](https://github.com/microsoft/PubSec-Info-Assistant/tree/v1.0?tab=readme-ov-file#azure-account-requirements), you can follow the guidance below to create a manual app registration.
+> [!NOTE]
+> Azure AD application registrations are no longer required for deploying the Information Assistant. The guidance below is retained for historical reference only.
 
 ## Tenant Administrator: Manual steps to create app registrations
 
@@ -61,22 +62,10 @@ You will need to obtain the following information from your tenant Administrator
 
 These values will be used to update the code in the infrastructure deployment section.
 
-### 4.  Adjust code in infrastructure deployment
+### 4. Resume the deployment as per the deployment procedure
 
-In the file `scripts/inf-create.sh`, between lines 63 - 69, you would need to uncomment the code  and update parameters with values provided by your tenant Administrator.
+After completing the previous steps, continue with the deployment steps mentioned in the documentation.
 
-```
-export TF_VAR_isInAutomation=true
-export TF_VAR_aadWebClientId=""
-export TF_VAR_aadMgmtClientId=""
-export TF_VAR_aadMgmtServicePrincipalId=""
-export TF_VAR_aadMgmtClientSecret=""
-```
+### 5: Update the AD App Registration
 
-### 5. Resume the deployment as per the deployment procedure
-
-After completing the step4, you can resume back the deployment steps mentioned the documentation
-
-### 6: Update the AD App Registration
-
-Once Terraform completes the deployment of the infrastructure, update the `identifier-uris` and `web-redirect-uris` with the newly generated random_string created during the Terraform deployment.
+Once Terraform completes the deployment of the infrastructure, update the `identifier-uris` and `web-redirect-uris` with the newly generated random_string created during the Terraform deployment if you created app registrations manually.
