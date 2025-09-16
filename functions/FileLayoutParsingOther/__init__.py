@@ -4,8 +4,9 @@
 import logging
 import os
 import json
-from enum import Enum
 from io import BytesIO
+from typing import Any, Dict, List, Tuple
+
 import azure.functions as func
 from azure.storage.blob import generate_blob_sas
 from azure.storage.queue import QueueClient, TextBase64EncodePolicy
@@ -14,6 +15,7 @@ from shared_code.status_log import StatusLog, State, StatusClassification
 from shared_code.utilities import Utilities, MediaType
 
 import requests
+from bs4 import BeautifulSoup
 
 azure_blob_storage_account = os.environ["BLOB_STORAGE_ACCOUNT"]
 azure_blob_storage_endpoint = os.environ["BLOB_STORAGE_ACCOUNT_ENDPOINT"]
@@ -54,6 +56,165 @@ utilities = Utilities(azure_blob_storage_account, azure_blob_storage_endpoint, a
 
 class UnstructuredError(Exception):
     pass
+
+
+DEFAULT_CHUNK_OVERLAP_RATIO = 0.25
+HEADER_CATEGORIES = {
+    "Title",
+    "Subtitle",
+    "Section Header",
+    "Header",
+    "Heading",
+    "SectionHeading",
+}
+
+
+def _looks_like_html(text: str) -> bool:
+    if "<" not in text or ">" not in text:
+        return False
+    soup = BeautifulSoup(text, "html.parser")
+    return bool(soup.find())
+
+
+def _collect_json_fragments(value: Any) -> List[Tuple[str, str]]:
+    fragments: List[Tuple[str, str]] = []
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for child in node.values():
+                _walk(child)
+        elif isinstance(node, list):
+            for child in node:
+                _walk(child)
+        elif isinstance(node, str):
+            stripped = node.strip()
+            if not stripped:
+                return
+            if _looks_like_html(stripped):
+                soup = BeautifulSoup(stripped, "html.parser")
+                fragments.append(("html", str(soup)))
+            else:
+                fragments.append(("text", stripped))
+
+    _walk(value)
+    return fragments
+
+
+def _normalize_element_content(element) -> Tuple[str, str]:
+    """Return display text and token text for an unstructured element."""
+
+    text = getattr(element, "text", "") or ""
+    text = text.strip()
+    metadata = getattr(element, "metadata", None)
+    html_text = getattr(metadata, "text_as_html", None)
+
+    if html_text:
+        soup = BeautifulSoup(html_text, "html.parser")
+        display_text = str(soup)
+        token_text = soup.get_text(" ").strip()
+        return display_text, token_text
+
+    if text and _looks_like_html(text):
+        soup = BeautifulSoup(text, "html.parser")
+        plain_text = soup.get_text(" ").strip()
+        return plain_text, plain_text
+
+    return text, text
+
+
+def _semantic_chunk_elements(elements, chunk_target_size: int, overlap_ratio: float) -> List[Dict[str, Any]]:
+    normalized_elements: List[Dict[str, Any]] = []
+    current_section = ""
+
+    for element in elements:
+        display_text, token_text = _normalize_element_content(element)
+        if not display_text:
+            continue
+
+        category = (getattr(element, "category", "") or "").strip()
+        if category in HEADER_CATEGORIES and display_text:
+            current_section = display_text.splitlines()[0].strip()
+
+        normalized_elements.append(
+            {
+                "display_text": display_text,
+                "token_text": token_text if token_text else display_text,
+                "category": category,
+                "section": current_section,
+                "page_number": getattr(getattr(element, "metadata", None), "page_number", None),
+            }
+        )
+
+    chunks: List[Dict[str, Any]] = []
+    start_index = 0
+    total_elements = len(normalized_elements)
+
+    while start_index < total_elements:
+        tokens_accumulated = 0
+        end_index = start_index
+        chunk_elements: List[Dict[str, Any]] = []
+
+        while end_index < total_elements:
+            candidate = normalized_elements[end_index]
+            candidate_tokens = utilities.token_count(candidate["token_text"])
+            if tokens_accumulated + candidate_tokens > chunk_target_size and chunk_elements:
+                break
+
+            chunk_elements.append(candidate)
+            tokens_accumulated += candidate_tokens
+            end_index += 1
+
+            if tokens_accumulated >= chunk_target_size:
+                break
+
+        if not chunk_elements and start_index < total_elements:
+            candidate = normalized_elements[start_index]
+            chunk_elements.append(candidate)
+            tokens_accumulated = utilities.token_count(candidate["token_text"])
+            end_index = start_index + 1
+
+        display_segments = [segment["display_text"] for segment in chunk_elements if segment["display_text"]]
+        token_segments = [segment["token_text"] for segment in chunk_elements if segment["token_text"]]
+        chunk_display_text = "\n\n".join(display_segments).strip()
+        chunk_token_text = "\n\n".join(token_segments).strip()
+
+        pages = sorted(
+            {segment["page_number"] if segment["page_number"] is not None else 1 for segment in chunk_elements}
+        )
+        section_name = ""
+        for segment in reversed(chunk_elements):
+            if segment["section"]:
+                section_name = segment["section"]
+                break
+
+        chunks.append(
+            {
+                "content": chunk_display_text,
+                "token_text": chunk_token_text,
+                "token_count": utilities.token_count(chunk_token_text) if chunk_token_text else 0,
+                "pages": pages if pages else [1],
+                "section": section_name,
+            }
+        )
+
+        if end_index >= total_elements:
+            break
+
+        overlap_tokens = max(int(chunk_target_size * overlap_ratio), 1)
+        overlap_accumulated = 0
+        new_start = end_index
+        while new_start > start_index and overlap_accumulated < overlap_tokens:
+            new_start -= 1
+            overlap_accumulated += utilities.token_count(
+                normalized_elements[new_start]["token_text"]
+            )
+
+        if new_start == start_index:
+            new_start += 1
+
+        start_index = new_start
+
+    return chunks
 
 def PartitionFile(file_extension: str, file_url: str):      
     """ uses the unstructured.io libraries to analyse a document
@@ -106,14 +267,48 @@ def PartitionFile(file_extension: str, file_url: str):
             from unstructured.partition.ppt import partition_ppt
             elements = partition_ppt(file=bytes_io)
             
-        elif file_extension_lower == '.pptx':    
+        elif file_extension_lower == '.pptx':
             from unstructured.partition.pptx import partition_pptx
             elements = partition_pptx(file=bytes_io)
-            
-        elif any(file_extension_lower in x for x in ['.txt', '.json']):
+
+        elif file_extension_lower == '.json':
+            try:
+                raw_json = bytes_io.getvalue().decode('utf-8')
+                json_payload = json.loads(raw_json)
+            except Exception as json_error:
+                raise UnstructuredError(
+                    f"An error occurred trying to parse the file: {str(json_error)}"
+                ) from json_error
+
+            fragments = _collect_json_fragments(json_payload)
+            elements = []
+
+            if fragments:
+                from unstructured.partition.html import partition_html
+                from unstructured.partition.text import partition_text
+
+                for fragment_type, fragment_value in fragments:
+                    try:
+                        if fragment_type == 'html':
+                            elements.extend(partition_html(text=fragment_value))
+                        else:
+                            elements.extend(partition_text(text=fragment_value))
+                    except Exception:
+                        elements.extend(partition_text(text=fragment_value))
+            else:
+                from unstructured.partition.text import partition_text
+                elements = partition_text(text=json.dumps(json_payload))
+
+            if isinstance(json_payload, dict):
+                for metadata_key in ("Title", "Subject", "Summary"):
+                    value = json_payload.get(metadata_key)
+                    if isinstance(value, str) and value.strip():
+                        metadata.append(f"{metadata_key}: {value.strip()}")
+
+        elif file_extension_lower == '.txt':
             from unstructured.partition.text import partition_text
             elements = partition_text(file=bytes_io)
-            
+
         elif file_extension_lower == '.xlsx':
             from unstructured.partition.xlsx import partition_xlsx
             elements = partition_xlsx(file=bytes_io)
@@ -172,36 +367,41 @@ def main(msg: func.QueueMessage) -> None:
             # if this type of eleemnt does not include title, then process with emty value
             pass
         
-        # Chunk the file     
-        from unstructured.chunking.title import chunk_by_title
-        NEW_AFTER_N_CHARS = 2000
-        COMBINE_UNDER_N_CHARS = 1000
-        MAX_CHARACTERS = 2750
-        chunks = chunk_by_title(elements, multipage_sections=True, new_after_n_chars=NEW_AFTER_N_CHARS, combine_text_under_n_chars=COMBINE_UNDER_N_CHARS, max_characters=MAX_CHARACTERS)   
+        # Chunk the file using semantic chunking with overlap
+        chunks = _semantic_chunk_elements(elements, CHUNK_TARGET_SIZE, DEFAULT_CHUNK_OVERLAP_RATIO)
         statusLog.upsert_document(blob_name, f'{function_name} - chunking complete. {len(chunks)} chunks created', StatusClassification.DEBUG)
-                
-        subtitle_name = ''
-        section_name = ''
+
+        chunk_total = len(chunks)
         # Complete and write chunks
-        for i, chunk in enumerate(chunks):      
-            if chunk.metadata.page_number == None:
-                page_list = [1]
-            else:
-                page_list = [chunk.metadata.page_number] 
-            # substitute html if text is a table            
-            if chunk.category == 'Table':
-                chunk_text = chunk.metadata.text_as_html
-            else:
-                chunk_text = chunk.text
+        for i, chunk in enumerate(chunks):
+            page_list = chunk.get('pages', []) or [1]
+            chunk_body = chunk.get('content', '')
+            if not chunk_body:
+                continue
+            token_text = chunk.get('token_text', chunk_body)
+            chunk_size = chunk.get('token_count', 0)
+            if chunk_size == 0:
+                chunk_size = utilities.token_count(token_text)
+
             # add filetype specific metadata as chunk text header
-            chunk_text = metdata_text + chunk_text                    
-            utilities.write_chunk(blob_name, blob_uri,
-                                f"{i}",
-                                utilities.token_count(chunk.text),
-                                chunk_text, page_list,
-                                section_name, title, subtitle_name,
-                                MediaType.TEXT
-                                )
+            chunk_text = f"{metdata_text}{chunk_body}" if metdata_text else chunk_body
+            section_name = chunk.get('section', '')
+            subtitle_name = section_name
+
+            utilities.write_chunk(
+                blob_name,
+                blob_uri,
+                f"{i}",
+                chunk_size,
+                chunk_text,
+                page_list,
+                section_name,
+                title,
+                subtitle_name,
+                MediaType.TEXT,
+                chunk_index=i,
+                chunk_total=chunk_total,
+            )
         
         statusLog.upsert_document(blob_name, f'{function_name} - chunking stored.', StatusClassification.DEBUG)   
         

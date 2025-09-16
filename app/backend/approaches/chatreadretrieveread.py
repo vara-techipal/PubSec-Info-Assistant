@@ -6,7 +6,7 @@ import re
 import logging
 import urllib.parse
 from datetime import datetime, timedelta
-from typing import Any, Sequence
+from typing import Any, Sequence, List
 
 import openai
 from openai import  AsyncAzureOpenAI
@@ -81,7 +81,10 @@ class ChatReadRetrieveReadApproach(Approach):
         {'role': Approach.USER, 'content': 'What steps are being taken to promote energy conservation?'},
         {'role': Approach.ASSISTANT, 'content': 'Several steps are being taken to promote energy conservation including reducing energy consumption, increasing energy efficiency, and increasing the use of renewable energy sources.Citations[File0]'}
     ]
-    
+
+    CHUNK_INDEX_FIELD = "chunk_index"
+    CHUNK_TOTAL_FIELD = "chunk_total"
+
     
     def __init__(
         self,
@@ -137,10 +140,100 @@ class ChatReadRetrieveReadApproach(Approach):
 
         self.model_name = model_name
         self.model_version = model_version
-        
-       
-      
-        
+
+
+
+
+    @staticmethod
+    def _escape_filter_value(value: str) -> str:
+        return value.replace("'", "''") if value else ""
+
+    def _get_neighbor_documents(self, doc: dict[str, Any]) -> List[dict[str, Any]]:
+        neighbors: List[dict[str, Any]] = []
+        file_name = doc.get(self.source_file_field)
+        chunk_index_raw = doc.get(self.CHUNK_INDEX_FIELD)
+        chunk_total_raw = doc.get(self.CHUNK_TOTAL_FIELD)
+
+        if file_name is None or chunk_index_raw is None:
+            return neighbors
+
+        try:
+            chunk_index = int(chunk_index_raw)
+        except (TypeError, ValueError):
+            return neighbors
+
+        try:
+            chunk_total = int(chunk_total_raw) if chunk_total_raw is not None else None
+        except (TypeError, ValueError):
+            chunk_total = None
+
+        candidate_indices: List[int] = []
+        if chunk_index > 0:
+            candidate_indices.append(chunk_index - 1)
+        if chunk_total is None or chunk_index < chunk_total - 1:
+            candidate_indices.append(chunk_index + 1)
+
+        requested: set[int] = set()
+        for candidate_index in candidate_indices:
+            if candidate_index in requested:
+                continue
+            requested.add(candidate_index)
+            filter_expr = (
+                f"{self.source_file_field} eq '{self._escape_filter_value(file_name)}' "
+                f"and {self.CHUNK_INDEX_FIELD} eq {candidate_index}"
+            )
+            try:
+                neighbor_results = list(
+                    self.search_client.search(
+                        search_text="*",
+                        filter=filter_expr,
+                        top=1,
+                        select=[
+                            self.content_field,
+                            self.source_file_field,
+                            self.page_number_field,
+                            self.chunk_file_field,
+                            self.CHUNK_INDEX_FIELD,
+                            self.CHUNK_TOTAL_FIELD,
+                        ],
+                    )
+                )
+            except Exception as error:
+                logging.debug(
+                    "Failed to retrieve neighbor chunk for %s at index %s: %s",
+                    file_name,
+                    candidate_index,
+                    error,
+                )
+                continue
+
+            if neighbor_results:
+                neighbors.append(neighbor_results[0])
+
+        return neighbors
+
+    def _combine_chunk_family(self, doc: dict[str, Any]) -> tuple[str, List[dict[str, Any]]]:
+        candidate_documents = [doc] + self._get_neighbor_documents(doc)
+        unique_documents: List[dict[str, Any]] = []
+        seen_chunk_files: set[str] = set()
+
+        for candidate in candidate_documents:
+            chunk_file = candidate.get(self.chunk_file_field)
+            if chunk_file in seen_chunk_files:
+                continue
+            seen_chunk_files.add(chunk_file)
+            unique_documents.append(candidate)
+
+        combined_segments: List[str] = []
+        for candidate in unique_documents:
+            content_value = candidate.get(self.content_field)
+            if isinstance(content_value, str) and content_value.strip():
+                combined_segments.append(nonewlines(content_value))
+
+        combined_text = "\n\n".join(segment for segment in combined_segments if segment)
+        return combined_text, unique_documents
+
+
     # def run(self, history: list[dict], overrides: dict) -> any:
     async def run(self, history: Sequence[dict[str, str]], overrides: dict[str, Any], citation_lookup: dict[str, Any], thought_chain: dict[str, Any]) -> Any:
 
@@ -299,24 +392,50 @@ class ChatReadRetrieveReadApproach(Approach):
         # # print("Filtered Results: ", len(filtered_results))
 
         for idx, doc in enumerate(r):  # for each document in the search results
-            # include the "FileX" moniker in the prompt, and the actual file name in the response
-            results.append(
-                f"File{idx} " + "| " + nonewlines(doc[self.content_field])
-            )
-            data_points.append(
-               "/".join(urllib.parse.unquote(doc[self.source_file_field]).split("/")[1:]
-                ) + "| " + nonewlines(doc[self.content_field])
-                )
-            # uncomment to debug size of each search result content_field
-            # print(f"File{idx}: ", self.num_tokens_from_string(f"File{idx} " + /
-            #  "| " + nonewlines(doc[self.content_field]), "cl100k_base"))
+            combined_text, combined_docs = self._combine_chunk_family(doc)
+            if not combined_text:
+                continue
 
-            # add the "FileX" moniker and full file name to the citation lookup
+            results.append(f"File{idx} | " + combined_text)
+            source_path = doc[self.source_file_field]
+            data_points.append(
+                "/".join(urllib.parse.unquote(source_path).split("/")[1:])
+                + "| "
+                + combined_text
+            )
+
+            page_numbers = doc.get(self.page_number_field) or [0]
+            if isinstance(page_numbers, list) and page_numbers:
+                first_page = page_numbers[0]
+            else:
+                first_page = page_numbers if isinstance(page_numbers, int) else 0
+            page_number_value = str(first_page) if first_page is not None else "0"
+
+            neighbor_files = [
+                candidate.get(self.chunk_file_field)
+                for candidate in combined_docs[1:]
+                if candidate.get(self.chunk_file_field)
+            ]
+            neighbor_indices = [
+                candidate.get(self.CHUNK_INDEX_FIELD)
+                for candidate in combined_docs[1:]
+                if candidate.get(self.CHUNK_INDEX_FIELD) is not None
+            ]
+
             citation_lookup[f"File{idx}"] = {
-                "citation": urllib.parse.unquote("https://" + self.blob_client.url.split("/")[2] + f"/{self.content_storage_container}/" + doc[self.chunk_file_field]),
-                "source_path": doc[self.source_file_field],
-                "page_number": str(doc[self.page_number_field][0]) or "0",
-             }
+                "citation": urllib.parse.unquote(
+                    "https://"
+                    + self.blob_client.url.split("/")[2]
+                    + f"/{self.content_storage_container}/"
+                    + doc[self.chunk_file_field]
+                ),
+                "source_path": source_path,
+                "page_number": page_number_value,
+                "chunk_index": doc.get(self.CHUNK_INDEX_FIELD),
+                "chunk_total": doc.get(self.CHUNK_TOTAL_FIELD),
+                "neighbor_chunk_files": neighbor_files,
+                "neighbor_chunk_indices": neighbor_indices,
+            }
             
         # create a single string of all the results to be used in the prompt
         results_text = "".join(results)

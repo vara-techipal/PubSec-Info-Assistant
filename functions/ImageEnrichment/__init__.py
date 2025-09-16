@@ -289,7 +289,9 @@ def main(msg: func.QueueMessage) -> None:
             section_name="",
             title_name=file_name,
             subtitle_name="",
-            file_class=MediaType.IMAGE
+            file_class=MediaType.IMAGE,
+            chunk_index=0,
+            chunk_total=1
         )
 
         statusLog.upsert_document(

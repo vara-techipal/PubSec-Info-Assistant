@@ -420,6 +420,10 @@ def poll_queue() -> None:
                 index_chunk['file_class'] = chunk_dict["file_class"]
                 index_chunk['title'] = chunk_dict["title"]
                 index_chunk['pages'] = chunk_dict["pages"]
+                if chunk_dict.get("chunk_index") is not None:
+                    index_chunk['chunk_index'] = chunk_dict.get("chunk_index")
+                if chunk_dict.get("chunk_total") is not None:
+                    index_chunk['chunk_total'] = chunk_dict.get("chunk_total")
                 index_chunk['translated_title'] = chunk_dict["translated_title"]
                 index_chunk['content'] = text
                 index_chunk['contentVector'] = embedding_data

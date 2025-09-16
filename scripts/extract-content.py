@@ -221,6 +221,10 @@ if skip_search_index == False:
                     index_chunk['file_class'] = result['file_class']
                     index_chunk['title'] = result['title']
                     index_chunk['pages'] = result['pages']
+                    if result.get('chunk_index') is not None:
+                        index_chunk['chunk_index'] = result.get('chunk_index')
+                    if result.get('chunk_total') is not None:
+                        index_chunk['chunk_total'] = result.get('chunk_total')
                     index_chunk['translated_title'] = result['translated_title']
                     index_chunk['content'] = result['content']
                     index_chunk['contentVector'] = result['contentVector']

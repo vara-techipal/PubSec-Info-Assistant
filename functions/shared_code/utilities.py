@@ -308,8 +308,8 @@ class Utilities:
         token_count = self.num_tokens_from_string(input_text, encoding)
         return token_count
 
-    def write_chunk(self, myblob_name, myblob_uri, file_number, chunk_size, chunk_text, page_list, 
-                    section_name, title_name, subtitle_name, file_class):
+    def write_chunk(self, myblob_name, myblob_uri, file_number, chunk_size, chunk_text, page_list,
+                    section_name, title_name, subtitle_name, file_class, chunk_index=None, chunk_total=None):
         """ Function to write a json chunk to blob"""
         chunk_output = {
             'file_name': myblob_name,
@@ -321,7 +321,9 @@ class Utilities:
             'section': section_name,
             'pages': page_list,
             'token_count': chunk_size,
-            'content': chunk_text                       
+            'content': chunk_text,
+            'chunk_index': chunk_index,
+            'chunk_total': chunk_total
         }
         # Get path and file name minus the root container
         file_name, file_extension, file_directory = self.get_filename_and_extension(myblob_name)
