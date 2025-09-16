@@ -12,6 +12,12 @@ For PDF's we use a service, known as [Azure AI Document Intelligence](https://le
 
 [Unstructured.io](https://unstructured.io/) supports various document types, including 'docx', 'html', 'htm', 'csv', 'md', 'pptx', 'txt', 'json', 'xlsx', 'xml', 'eml', and 'msg'. Like Azure AI Document Intelligence for PDFs, we create a 'document map' of the content, which serves as a JSON-based representation.
 
+### JSON ingestion and semantic chunking
+
+When `.json` files are uploaded, the pipeline now loads the payload with `json.loads` and inspects every value for embedded HTML fragments (for example, a `Content` property). HTML segments are normalised with `BeautifulSoup`/`unstructured.partition_html`, ensuring table rows, paragraphs and other rich markup are converted into consistent text before chunking. Plain-text values in the JSON payload are preserved alongside the HTML.
+
+Non-PDF chunking now uses an HTML-aware semantic strategy. Sections, headers, table rows and paragraphs are grouped into chunks that target the configured `CHUNK_TARGET_SIZE`, with approximately 25% overlap between adjacent chunks so instructions and context do not get truncated. Each chunk is written with its zero-based position and the total chunk count, allowing the retrieval layer to fetch neighbouring chunks when responding to queries.
+
 ## Image Pre-Processing
 
 Image processing for 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tif', and 'tiff' formats. Leveraging Azure's GPU optionally in regions where [available](https://learn.microsoft.com/en-us/azure/container-instances/container-instances-region-availability) to generate Captions and Deep Captions. We utilize the Cognitive Services [Computer Vision API](https://azure.microsoft.com/en-us/resources/cloud-computing-dictionary/what-is-computer-vision/?ef_id=_k_f4f6deceb1b41be24ecebbf7bfa0a48b_k_&OCID=AIDcmme9zx2qiz_SEM__k_f4f6deceb1b41be24ecebbf7bfa0a48b_k_&msclkid=f4f6deceb1b41be24ecebbf7bfa0a48b#object-classification) to generate descriptions and perform OCR on any text present within these image files. A JSON model of this data is then generated the same as with other document types.
