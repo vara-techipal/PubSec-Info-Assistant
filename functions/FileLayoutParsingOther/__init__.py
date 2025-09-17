@@ -216,7 +216,7 @@ def _semantic_chunk_elements(elements, chunk_target_size: int, overlap_ratio: fl
 
     return chunks
 
-def PartitionFile(file_extension: str, file_url: str):      
+def PartitionFile(file_extension: str, file_url: str):
     """ uses the unstructured.io libraries to analyse a document
     Returns:
         elements: A list of available models
@@ -225,8 +225,9 @@ def PartitionFile(file_extension: str, file_url: str):
     response = requests.get(file_url)
     bytes_io = BytesIO(response.content)
     response.close()   
-    metadata = [] 
+    metadata = []
     elements = None
+    source_url = None
     file_extension_lower = file_extension.lower()
     try:        
         if file_extension_lower == '.csv':
@@ -280,6 +281,23 @@ def PartitionFile(file_extension: str, file_url: str):
                     f"An error occurred trying to parse the file: {str(json_error)}"
                 ) from json_error
 
+            def _extract_source_url(value: Any) -> None:
+                nonlocal source_url
+                if source_url:
+                    return
+                if isinstance(value, dict):
+                    potential = value.get("source_url")
+                    if isinstance(potential, str) and potential.strip():
+                        source_url = potential.strip()
+                        return
+                    for child in value.values():
+                        _extract_source_url(child)
+                elif isinstance(value, list):
+                    for child in value:
+                        _extract_source_url(child)
+
+            _extract_source_url(json_payload)
+
             fragments = _collect_json_fragments(json_payload)
             elements = []
 
@@ -320,7 +338,7 @@ def PartitionFile(file_extension: str, file_url: str):
     except Exception as e:
         raise UnstructuredError(f"An error occurred trying to parse the file: {str(e)}") from e
          
-    return elements, metadata
+    return elements, metadata, source_url
     
     
 
@@ -349,7 +367,7 @@ def main(msg: func.QueueMessage) -> None:
               
         
         # Partition the file dependent on file extension
-        elements, metadata = PartitionFile(file_extension, blob_path_plus_sas)
+        elements, metadata, source_url = PartitionFile(file_extension, blob_path_plus_sas)
         metdata_text = ''
         for metadata_value in metadata:
             metdata_text += metadata_value + '\n'    
@@ -390,7 +408,7 @@ def main(msg: func.QueueMessage) -> None:
 
             utilities.write_chunk(
                 blob_name,
-                blob_uri,
+                source_url or blob_uri,
                 f"{i}",
                 chunk_size,
                 chunk_text,
