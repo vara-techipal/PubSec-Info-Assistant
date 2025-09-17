@@ -58,6 +58,7 @@ def test_partition_file_json_html_content(file_layout_module):
     sample_payload = {
         "Title": "My Document",
         "Content": "<p>Welcome <strong>reader</strong></p>",
+        "source_url": "https://contoso.example/source",
     }
     payload_bytes = json.dumps(sample_payload).encode("utf-8")
 
@@ -74,9 +75,10 @@ def test_partition_file_json_html_content(file_layout_module):
     with patch.object(file_layout_module.requests, "get", return_value=DummyResponse(payload_bytes)), \
             patch("unstructured.partition.html.partition_html", return_value=[html_element]), \
             patch("unstructured.partition.text.partition_text", return_value=[text_element]):
-        elements, metadata = file_layout_module.PartitionFile(".json", "https://example.com/test.json")
+        elements, metadata, source_url = file_layout_module.PartitionFile(".json", "https://example.com/test.json")
 
     element_texts = [getattr(element, "text", "") for element in elements if getattr(element, "text", "")]
 
     assert any("Welcome" in text for text in element_texts)
     assert "Title: My Document" in metadata
+    assert source_url == "https://contoso.example/source"
